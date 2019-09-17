@@ -19058,13 +19058,16 @@ function parse_dom_table(table, _opts) {
 			var elt = elts[_C];
 			if (opts.display && is_dom_element_hidden(elt)) continue;
 			var v = htmldecode(elt.innerHTML);
-			for(midx = 0; midx < merges.length; ++midx) {
+			for(midx = merges.length; midx >= 0; --midx) {
 				var m = merges[midx];
-				if(m.s.c == C && m.s.r <= R && R <= m.e.r) { C = m.e.c+1; midx = -1; }
+				if(m && m.s.c == C && m.s.r <= R && R <= m.e.r) {
+					C = m.e.c+1;
+					break;
+				}
 			}
 			/* TODO: figure out how to extract nonstandard mso- style */
-			CS = +elt.getAttribute("colspan") || 1;
-			if((RS = +elt.getAttribute("rowspan"))>0 || CS>1) merges.push({s:{r:R,c:C},e:{r:R + (RS||1) - 1, c:C + CS - 1}});
+			CS = +elt.colSpan || 1;
+			if((RS = +elt.rowSpan)>1 || CS>1) merges.push({s:{r:R,c:C},e:{r:R + (RS||1) - 1, c:C + CS - 1}});
 			var o = {t:'s', v:v};
 			var _t = elt.getAttribute("t") || "";
 			if(v != null) {
@@ -20626,6 +20629,7 @@ function sheet_to_json(sheet, opts) {
 	if(o.header === 1) header = 1;
 	else if(o.header === "A") header = 2;
 	else if(Array.isArray(o.header)) header = 3;
+	else if(o.header == null) header = 0;
 	switch(typeof range) {
 		case 'string': r = safe_decode_range(range); break;
 		case 'number': r = safe_decode_range(sheet["!ref"]); r.s.r = range; break;

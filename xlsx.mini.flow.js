@@ -3539,7 +3539,7 @@ function fix_row(cstr/*:string*/)/*:string*/ { return cstr.replace(/([A-Z]|^)(\d
 function unfix_row(cstr/*:string*/)/*:string*/ { return cstr.replace(/\$(\d+)$/,"$1"); }
 
 function decode_col(colstr/*:string*/)/*:number*/ { var c = unfix_col(colstr), d = 0, i = 0; for(; i !== c.length; ++i) d = 26*d + c.charCodeAt(i) - 64; return d - 1; }
-function encode_col(col/*:number*/)/*:string*/ { var s=""; for(++col; col; col=Math.floor((col-1)/26)) s = String.fromCharCode(((col-1)%26) + 65) + s; return s; }
+function encode_col(col/*:number*/)/*:string*/ { if(col < 0) throw new Error("invalid column " + col); var s=""; for(++col; col; col=Math.floor((col-1)/26)) s = String.fromCharCode(((col-1)%26) + 65) + s; return s; }
 function fix_col(cstr/*:string*/)/*:string*/ { return cstr.replace(/^([A-Z])/,"$$$1"); }
 function unfix_col(cstr/*:string*/)/*:string*/ { return cstr.replace(/^\$([A-Z])/,"$1"); }
 
@@ -7393,13 +7393,16 @@ function parse_dom_table(table/*:HTMLElement*/, _opts/*:?any*/)/*:Worksheet*/ {
 			var elt/*:HTMLTableCellElement*/ = elts[_C];
 			if (opts.display && is_dom_element_hidden(elt)) continue;
 			var v/*:string*/ = htmldecode(elt.innerHTML);
-			for(midx = 0; midx < merges.length; ++midx) {
+			for(midx = merges.length; midx >= 0; --midx) {
 				var m/*:Range*/ = merges[midx];
-				if(m.s.c == C && m.s.r <= R && R <= m.e.r) { C = m.e.c+1; midx = -1; }
+				if(m.s.c == C && m.s.r <= R && R <= m.e.r) {
+					C = m.e.c+1;
+					break;
+				}
 			}
 			/* TODO: figure out how to extract nonstandard mso- style */
-			CS = +elt.getAttribute("colspan") || 1;
-			if((RS = +elt.getAttribute("rowspan"))>0 || CS>1) merges.push({s:{r:R,c:C},e:{r:R + (RS||1) - 1, c:C + CS - 1}});
+			CS = +elt.colSpan || 1;
+			if((RS = +elt.rowSpan)>0 || CS>1) merges.push({s:{r:R,c:C},e:{r:R + (RS||1) - 1, c:C + CS - 1}});
 			var o/*:Cell*/ = {t:'s', v:v};
 			var _t/*:string*/ = elt.getAttribute("t") || "";
 			if(v != null) {
@@ -8185,6 +8188,7 @@ function sheet_to_json(sheet/*:Worksheet*/, opts/*:?Sheet2JSONOpts*/) {
 	if(o.header === 1) header = 1;
 	else if(o.header === "A") header = 2;
 	else if(Array.isArray(o.header)) header = 3;
+	else if(o.header == null) header = 0;
 	switch(typeof range) {
 		case 'string': r = safe_decode_range(range); break;
 		case 'number': r = safe_decode_range(sheet["!ref"]); r.s.r = range; break;
